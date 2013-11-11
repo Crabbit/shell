@@ -4,6 +4,8 @@
 
 # 正常来说，当我们执行一个shell script时，先是产生了一个sub-shell的子线程，然后sub-shell再去fork命令子线程。
 # source就是让 shell script在当前shell内执行，而不是产生一个sub-shell来执行
+# source，又叫点操作符( dot operator )
+# 可以这样运行 : . ./test.sh
 # exec
 
 # 在设定变量的时候要注意以下5点：
