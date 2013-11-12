@@ -1,4 +1,0 @@
-This is the 1st line.
-This is a test line.
-123456789..123456789
-This is the 3rd line.
