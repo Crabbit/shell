@@ -2,11 +2,12 @@
 
 #value方面的一些小笔记
 
+# fork -- source -- exec
 # 正常来说，当我们执行一个shell script时，先是产生了一个sub-shell的子线程，然后sub-shell再去fork命令子线程。
 # source就是让 shell script在当前shell内执行，而不是产生一个sub-shell来执行
 # source，又叫点操作符( dot operator )
 # 可以这样运行 : . ./test.sh
-# exec
+# exec也是让script在同一进程上执行，但是原有的进程会被结束.
 
 # 在设定变量的时候要注意以下5点：
 #         1)'='两边不能使用区域符号(IFS)，也应该避免使用 shell 的保留元字符(meta charactor)
