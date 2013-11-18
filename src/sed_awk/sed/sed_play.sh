@@ -21,5 +21,11 @@ p
 s/root/lili/p
 }' /etc/passwd
 
-echo "__________sed"
-sed '=' /etc/passwd
+# 输出行号
+echo "__________sed -n '/root/=' /etc/passwd"
+sed -n '/root/=' /etc/passwd
+
+# 用list来显示转义字符
+# $表示换行符，\t制表符
+echo "_________sed -n '/root/l' /etc/passwd"
+sed -n '/root/l' /etc/passwd
