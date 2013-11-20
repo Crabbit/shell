@@ -67,3 +67,6 @@ touch file."$DATE".log
 touch file{a..c}{1..3}.log
 #filea1.log filea2.log filea3.log fileb1.log fileb2.log fileb3.log filec1.log filec2.log filec3.log
 
+# 这样可以输出变量的长度
+test=lili
+echo ${#lili}
