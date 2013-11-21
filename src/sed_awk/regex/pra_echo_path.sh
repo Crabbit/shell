@@ -52,3 +52,10 @@ echo "_______awk__V2_________"
 		print("Dir : "pathname[i]);
 	}'
 # -------------------------------------------------
+echo "_________xargs_________"
+# -t 表示表示使用一个详细模式
+# 显示要运行的命令。调试的时候很有用
+# -i 表示告诉xargs用每项的名称替换{}
+# echo $PATH | xargs -t -d : -i echo Dir : {} | grep -v ^$ 
+echo $PATH | xargs -d : -i echo Dir : {} | grep -v ^$ 
+
