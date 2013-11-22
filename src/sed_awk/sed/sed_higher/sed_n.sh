@@ -62,6 +62,16 @@ N
 s/dd.11/li\nli/
 ' file_n.txt
 
+# 也可以使用
+# !  排除命令
+# $代表数据流中的最后一行文本.
+echo "_____________sed '/\$!N ; s/dd.11/li\nli/ ; s/BBBB/cici/' file_n.txt"
+sed '
+$!N
+s/dd.11/li\nli/
+s/BBBB/cici/
+' file_n.txt
+
 # 要注意，如果和N命令一起使用
 # 并且要删除模式空间中的行，那么两行会一起删除
 echo "_____________sed 'N ; /dd.11/d' file_n.txt"
