@@ -16,6 +16,8 @@ sed -n '1,4p' /etc/passwd
 
 # 先输出，然后替换
 echo "__________sed -n -e'/root/p ; s/root/lili/p' "
+# sed -n '/root/{p ; s/root/lili/p}' /etc/passwd
+# 效果等同.
 sed -n '/root/{
 p
 s/root/lili/p

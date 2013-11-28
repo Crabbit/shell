@@ -50,7 +50,7 @@ p
 # p前面的$符号表示当达到最后一行的时候，输出
 echo 将全文反转
 sed -n '{G ; h ; $p}' sed_holdspace.txt
-echo 将全文反转
+echo 将全文反转1!
 sed -n '{1!G ; h ; $p}' sed_holdspace.txt
 
 rm -fr sed_holdspace.txt
