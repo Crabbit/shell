@@ -36,7 +36,8 @@ sed '{
 :merge
 N
 s/\n//
-/[^ ]/b merge
-}' CU.txt | sed 's/  /\n/g'
+$!b merge
+s/  /\n/g
+}' CU.txt
 
 #rm -fr CU.txt
