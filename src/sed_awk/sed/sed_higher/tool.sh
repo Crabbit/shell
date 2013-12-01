@@ -13,7 +13,7 @@ $p
 
 
 # 添加空行
-sed 'G' /etc/passwdOq
+sed 'G' /etc/passwd
 
 # 添加行号
 sed '=' /etc/passwd | sed 'N ; s/\n/ /'
