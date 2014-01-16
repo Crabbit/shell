@@ -23,7 +23,8 @@ print "Options 4 :",ARGV[4]
 echo ======================================================
 gawk '
 BEGIN{
+FS=":"
 print "The file is :",ARGV[1]
 }
-{print "Line ",FNR,$1,$NF
+{print "Line ",FNR,$1,"---- ",$NF
 }' /etc/passwd
