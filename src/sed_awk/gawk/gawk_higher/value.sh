@@ -30,3 +30,13 @@ gawk -v n=3 -f $script_temp data
 rm -fr $script_temp
 
 # 关联数组
+gawk '
+BEGIN{
+cellnumber["lili"] = "187xxxxxx82"
+cellnumber["cici"] = "187xxxxxx61"
+cellnumber["home"] = "135xxxxxx99"
+print "lilis number :",cellnumber["lili"]
+print "cicis number :",cellnumber["cici"]
+print "homes number :",cellnumber["home"]
+}
+'
