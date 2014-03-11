@@ -1,0 +1,2 @@
+统计ip.txt文件中，只get index.html的ip
+按照每行两列输出ip
