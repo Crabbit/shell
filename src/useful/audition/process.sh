@@ -30,3 +30,6 @@ do
 done
 
 IFS=$OLD_IFS
+
+#合并了两个文件
+awk -F  'NR==FNR{a[]=-bash;next}{print a[]  }' info.txt score.txt 
