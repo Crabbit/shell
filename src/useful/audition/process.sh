@@ -32,4 +32,4 @@ done
 IFS=$OLD_IFS
 
 #合并了两个文件
-awk -F"    " 'NR=FNR{a[$1]=$0;next}{print a[$1]"    "$2"    "$3}' info.txt score.txt
+awk -F"    " 'NR==FNR{a[$1]=$0;next}{print a[$1]"    "$2"    "$3}' info.txt score.txt
