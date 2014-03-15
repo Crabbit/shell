@@ -19,6 +19,7 @@ _HOSTNAME=$( echo "XiyouLinux.org" | cut -d'.' -f 1 )
 #creat temporary file.
 TEMP_FILE1=$( mktemp tempfile.XXXX )
 TEMP_FILE2=$( mktemp tempfile.XXXX )
+TEMP_FILE3=$( mktemp tempfile.XXXX )
 TEMP_FILE_sec=$( mktemp tempfile.XXXX )
 
 echo "User    Login ip        Status    Time"
@@ -28,16 +29,34 @@ echo "User    Login ip        Status    Time"
 declare -A Month
 Month=([Jan]="01" [Feb]="02" [Mar]="03" [Apr]="04" [May]="05" [Jun]="06" [Jul]="07" [Aug]="08" [Sep]="09" [Oct]="10" [Nov]="11" [Dec]="12")
 
-grep -w "failure" $SEC_FILE > $TEMP_FILE_sec
+grep -w "failure" $SEC_FILE | grep -w "sshd" > $TEMP_FILE_sec
 
 #echo ${Month[$(echo "Feb")]}
 
 #split time
-grep -w "sshd" $TEMP_FILE_sec | gawk -F" $_HOSTNAME" '{ print $1 }' > $TEMP_FILE1
+cat $TEMP_FILE_sec | gawk -F" $_HOSTNAME" '{ print $1 }' > $TEMP_FILE1
 
-grep -w "sshd" $TEMP_FILE_sec | gawk -F" $_HOSTNAME" '{ print $1 }' | cut -d' ' -f 1 > $TEMP_FILE2
+#split month
+for Mon in $( cat $TEMP_FILE1 | cut -d' ' -f 1 )
+do
+	echo ${Month[$Mon]} >> $TEMP_FILE2
+done
 
+#merge month-day-time
+gawk -F" " 'NR==FNR{a[FNR]=$0;next}{print a[FNR]"-"$2"  "$3}' $TEMP_FILE2 $TEMP_FILE1 > $TEMP_FILE3
 
-#rm -fr $TEMP_FILE1
-#rm -fr $TEMP_FILE2
+#split ip
+gawk -F"rhost=" '{print $2}' $TEMP_FILE_sec | cut -d' ' -f 1 > $TEMP_FILE1
+
+paste $TEMP_FILE1 $TEMP_FILE3 > $TEMP_FILE2
+#split user
+gawk -F" user=" '{print $2}' $TEMP_FILE_sec > $TEMP_FILE1
+
+paste $TEMP_FILE1 $TEMP_FILE2 > $TEMP_FILE3
+cat $TEMP_FILE3
+
+rm -fr $TEMP_FILE1
+rm -fr $TEMP_FILE2
+rm -fr $TEMP_FILE2
+rm -fr $TEMP_FILE3
 rm -fr $TEMP_FILE_sec
