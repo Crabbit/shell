@@ -20,3 +20,6 @@
 >**naxin**
 >>小组纳新免试题的一个检测shell
 ***
+
+>**shell_homework**
+>>**百度导师给的shell练习题**
