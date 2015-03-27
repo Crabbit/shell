@@ -51,14 +51,20 @@ IFS=$ODL_IFS
 A="1
 2
 "
+
+echo "echo \$A"
 echo $A
+
+echo "echo '\$A'"
 echo '$A'
 echo "$A"
 echo '"$A"'
 echo "'$A'"
 
 #
+echo "A=B A=C"
 A=B A=C
+echo "echo \$A"
 echo $A
 
 A="B C" echo $A
