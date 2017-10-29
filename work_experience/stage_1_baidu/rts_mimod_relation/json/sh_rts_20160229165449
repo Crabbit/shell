@@ -1,0 +1,37 @@
+{
+    "secure_info": [
+        {
+            "colume_amounts": "xxx", 
+            "gray_machine_ip": "10.xx.xx.xx", 
+            "gray_machine_port": "xxxxx", 
+            "idc": "xxx", 
+            "kutype": "xxx", 
+            "reflash_date": "20160229165449", 
+            "same_rate": "50"
+        }
+    ], 
+    "sh-rts_0": [
+        {
+            "attr": "OLD", 
+            "ip": "10.xx.xx.xx", 
+            "port": "xxxxx"
+        }, 
+        {
+            "attr": "OLD", 
+            "ip": "10.xx.xx.xx", 
+            "port": "xxxxx"
+        } 
+    ], 
+    "sh-rts_1": [
+        {
+            "attr": "OLD", 
+            "ip": "10.xx.xx.xx", 
+            "port": "xxxxx"
+        }, 
+        {
+            "attr": "OLD", 
+            "ip": "10.xx.xx.xx", 
+            "port": "xxxxx"
+        } 
+    ]
+}

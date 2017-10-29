@@ -1,0 +1,37 @@
+{
+        "secure_info": [
+                    {
+                                    "idc": "sh",
+                                                    "kutype": "wiserts",
+                                                                "colume_amounts": "2",
+                                                                            "same_rate": "0",
+                                                                                        "reflash_date": "20160124",
+                                                                                                    "gray_machine_ip": "10.115.216.18",
+                                                                                                                "gray_machine_port": "11780"
+                                                                                                                            }
+            ],
+                    "sh-wiserts_0": [
+                                {
+                                                "ip": "10.195.62.17",
+                                                            "port": "11920",
+                                                                        "attr": "NEW"
+                                                                                    },
+                            {
+                                            "ip": "10.195.26.37",
+                                                        "port": "11940",
+                                                                    "attr": "OLD"
+                                                                                }
+                ],
+                        "sh-wiserts_1": [
+                                    {
+                                                    "ip": "10.195.39.18",
+                                                                "port": "11940",
+                                                                            "attr": "NEW"
+                                                                                        },
+                                {
+                                                "ip": "10.195.27.35",
+                                                            "port": "12080",
+                                                                        "attr": "OLD"
+                                                                                    }
+                    ]
+}

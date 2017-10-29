@@ -1,0 +1,14 @@
+BEGIN {
+print "Print the user id and shell."
+print " User id         Shell"
+print "---------      ---------"
+FS=":"	
+}
+
+{
+print $1 "           " $7 
+}
+
+END{
+print "--------  OVER ----------"
+}

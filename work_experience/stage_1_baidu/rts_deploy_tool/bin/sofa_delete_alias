@@ -1,0 +1,35 @@
+#!/bin/bash
+set -o pipefail
+TOP_DIR=$(dirname $0)
+
+if [ "${SOURCE_LOCK}" != "1" ]; then
+    source "${TOP_DIR}/common.sh"
+fi
+
+KUTYPE=""
+APP_TYPE=""
+
+
+function usage() {
+    echo "Usage: sofa_delete_alias [alias_name]"
+    echo "Try 'sofa_delete_alias -h' for more information."
+    exit 1
+}
+
+function opt_help(){
+    echo "Usage: sofa_delete_alias[alias_name]"
+    echo "SYNOPSIS:"
+    echo "    sofa_delete_alias"
+    echo "    sofa_change_alias [option]..."
+}
+
+function main() {
+    if [ "$#" -eq 1 ] && [ ! -z "${1}" ]; then
+        API_ALIAS_delete_alias "${1}"
+    else
+        opt_help
+    fi
+}
+
+
+main "$@"

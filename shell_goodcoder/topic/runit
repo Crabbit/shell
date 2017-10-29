@@ -1,0 +1,31 @@
+#!/bin/bash
+
+function usage() {
+    :
+}
+
+function verify() {
+    :
+}
+
+function log() {
+    :
+}
+
+function run_command() {
+    :
+}
+
+function load_env_file() {
+    :
+}
+
+function run_procfile() {
+    :
+}
+
+function main() {
+    :
+}
+
+main "$@"

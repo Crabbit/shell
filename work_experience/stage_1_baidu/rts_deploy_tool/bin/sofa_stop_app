@@ -1,0 +1,42 @@
+#!/bin/bash
+set -o pipefail
+TOP_DIR=$(dirname $0)
+
+if [ "${SOURCE_LOCK}" != "1" ]; then
+    source "${TOP_DIR}/common.sh"
+fi
+
+KUTYPE=""
+APP_TYPE=""
+TIME_REGION=""
+
+
+function usage() {
+    echo "Usage: sofa_stop_job [app name]"
+    echo "Try 'sofa_stop_job -h' for more information."
+    exit 1
+}
+
+function opt_help(){
+    echo "Usage: sofa_stop_job [job name]"
+    echo "SYNOPSIS:"
+    echo "    sofa_deploy_job"
+    echo "    sofa_deploy_job [option]..."
+    echo "Options:"
+    echo "    -h |   Display help information."
+}
+
+function main() {
+    if [ "$#" -eq 1 ] && [ ! -z "${1}" ]; then
+        app_name="${1}"
+    else
+        opt_help
+    fi
+    return_info=$( API_APP_stop_app "${app_name}" | grep 'error' | awk -F'"error":' '{print $NF}' | cut -d',' -f 1 )
+    [ $return_info -ne 0 ] && FATAL_WARN "stop $app_name failed."
+
+    return 0
+}
+
+
+main "$@"

@@ -1,0 +1,210 @@
+#!/bin/bash
+set -o pipefail
+TOP_DIR=$(dirname $0)
+
+if [ "${SOURCE_LOCK}" != "1" ]; then
+    source "${TOP_DIR}/common.sh"
+fi
+
+KUTYPE=""
+APP_TYPE=""
+
+
+function usage() {
+    echo "Usage: auto_reflash.sh -c "
+    echo "Try 'auto_reflash.sh -h' for more information."
+    exit 1
+}
+
+function opt_help(){
+    echo "Usage: auto_reflash.sh -c "
+    echo "SYNOPSIS:"
+    echo "    auto_reflash.sh"
+    echo "    auto_reflash.sh [option]..."
+    echo "Options:"
+    echo "    -h |   Display help information."
+    echo "    -c |   Only compress all tar."
+}
+
+function clear_old_tar(){
+    for tar_name in $(ls ${SOFA_CLOUD_TAR_PATH}); do
+        modify_time=$(stat ${SOFA_CLOUD_TAR_PATH}${tar_name} | grep Modify | awk -F 'Modify: ' '{print $2}' | cut -d. -f 1)
+        modify_time_s=$(date --date="${modify_time}" +%s)
+        time_now_s=$(date +%s)
+        time_diff_s=$[ ${time_now_s} - ${modify_time_s} ]
+        if [ "${time_diff_s}" -ge "5184000" ]; then
+            rm -v "${SOFA_CLOUD_TAR_PATH}${tar_name}"
+        fi
+    done
+    return 0
+}
+
+function deploy(){
+    if [ "$#" -eq 1 ] && [ ! -z "${1}" ]; then
+        time_arg="${1}"
+    else
+        echo "[funciton-deploy]-[arg]-[num_error]"
+        return 1
+    fi
+    #for i in rts rts_noanti rtswb rtstb cserts wiserts; do
+    for i in rts rts_noanti rtswb rtstb wiserts; do
+        ret=$( nohup sh -x ${BIN_DIR}/sofa_deploy_job -k ${i} -t cs -d "${time_arg}" -r </dev/null &>"${LOG_DIR}/register_app_${i}_cs.log" )
+        wait
+        [ "$?" -ne "0" ] && FATAL_WARN "deploy $i parser ${time_arg} failed"
+        #nohup sh -x ${BIN_DIR}/sofa_deploy_job -k ${i} -t cs -d "${time_arg}"</dev/null $>"${LOG_DIR}/deploy_job_${i}_cs.log"
+        #wait
+    done
+
+    ret=$( nohup sh -x ${BIN_DIR}/sofa_deploy_job -t es -d "${time_arg}" -r </dev/null &>"${LOG_DIR}/register_app_es.log" )
+    [ "$?" -ne "0" ] && FATAL_WARN "deploy dag ${time_arg} failed"
+    wait
+    ret=$( nohup sh -x ${BIN_DIR}/sofa_deploy_job -t es1 -d "${time_arg}" </dev/null &>"${LOG_DIR}/deploy_es1_job_${time_arg}.log" )
+    wait
+    [ "$?" -ne "0" ] && FATAL_WARN "deploy antipsam ${time_arg} failed"
+    ret=$( nohup sh -x ${BIN_DIR}/sofa_deploy_job -t es2 -d "${time_arg}" </dev/null &>"${LOG_DIR}/deploy_es2_job_${time_arg}.log" )
+    wait
+    [ "$?" -ne "0" ] && FATAL_WARN "deploy extractor ${time_arg} failed"
+
+    return 0
+}
+
+function start_app(){
+    if [ "$#" -eq 1 ] && [ ! -z "${1}" ]; then
+        time_arg="${1}"
+    else
+        echo "[funciton-deploy]-[arg]-[num_error]"
+        return 1
+    fi
+
+    #for i in rts rts_noanti rtswb rtstb cserts wiserts; do
+    for i in rts rts_noanti rtswb rtstb wiserts; do
+        sh -x ${BIN_DIR}/sofa_start_app -t cs -k ${i} -d "${time_arg}" </dev/null &>"${LOG_DIR}/start_app_${i}_${time_arg}.log"
+        [ "$?" -eq 0 ] && touch "${FLAG_DIR}/${i}_${time_arg}.start"
+        wait
+    done
+
+    sh -x ${BIN_DIR}/sofa_start_app -t es -k dag -d "${time_arg}" </dev/null &>"${LOG_DIR}/start_app_dag_${time_arg}.log"
+    wait
+
+    echo "Start succ."
+    return 0
+}
+
+function compress(){
+    if [ "${PARSER_CLEAN_MAC}" != "yq01-build-unicorn-clean0.yq01" ] && [ "${EXTRACTOR_CLEAN_MAC}" != "yq01-build-unicorn-clean0.yq01" ] && [ "${ANTISPAM_CLEAN_MAC}" != "yq01-build-unicorn-clean0.yq01" ]; then
+            echo "Clean env mac has changed!"
+            exit 1
+    fi
+
+    clear_old_tar
+
+#   tar -zcvf parser.0530.tar.gz *
+    if [ -d "${RTS_PARSER_CLEAN}" ] && [ -d "${RTSWB_PARSER_CLEAN}" ] && [ -d "${RTSTB_PARSER_CLEAN}" ] && [ -d "${CSERTS_PARSER_CLEAN}" ]; then
+#   compress rts parser tar
+        cd ${RTS_PARSER_CLEAN}
+        sed -i "s#^\(job_name: \)\(.*\)#\1\"online-dag-${TIME_STAMP}\"#g" "${PARSER_SEA_CONFIG_FILE}"
+        nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/rts.parser.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/rts.parser.${TIME_STAMP}.tar.log"
+        wait
+        [ ! -f "${SOFA_CLOUD_TAR_PATH}/rts.parser.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf rts.parser.${TIME_STAMP}.tar.gz failed!"
+        cd ${SOFA_CLOUD_TAR_PATH} && md5sum rts.parser.${TIME_STAMP}.tar.gz > rts.parser.${TIME_STAMP}.tar.gz.md5
+
+#   compress rts no antispam  parser tar
+        rm -frv ${RTS_PARSER_NO_ANTI_CLEAN}
+        cp -r ${RTS_PARSER_CLEAN} ${RTS_PARSER_NO_ANTI_CLEAN}
+        cd ${RTS_PARSER_NO_ANTI_CLEAN}
+        sed -i "s#^\(job_name: \)\(.*\)#\1\"online-dag-${TIME_STAMP}\"#g" "${PARSER_SEA_CONFIG_FILE}"
+        sed -i "s#^\(spam_server_mode : \)\(.*\)#\1\"0\"#g" "${PARSER_NO_ANRI_CONFIG_FILE}"
+        nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/rts_noanti.parser.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/rts_noanti.parser.${TIME_STAMP}.tar.log"
+        wait
+        [ ! -f "${SOFA_CLOUD_TAR_PATH}/rts.parser.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf rts.parser.${TIME_STAMP}.tar.gz failed!"
+        cd ${SOFA_CLOUD_TAR_PATH} && md5sum rts_noanti.parser.${TIME_STAMP}.tar.gz > rts_noanti.parser.${TIME_STAMP}.tar.gz.md5
+
+#   compress rtswb parser tar
+        cd ${RTSWB_PARSER_CLEAN}
+        sed -i "s#^\(job_name: \)\(.*\)#\1\"online-dag-${TIME_STAMP}\"#g" "${PARSER_SEA_CONFIG_FILE}"
+        nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/rtswb.parser.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/rtswb.parser.${TIME_STAMP}.tar.log"
+        wait
+        [ ! -f "${SOFA_CLOUD_TAR_PATH}/rtswb.parser.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf rtswb.parser.${TIME_STAMP}.tar.gz failed!"
+        cd ${SOFA_CLOUD_TAR_PATH} && md5sum rtswb.parser.${TIME_STAMP}.tar.gz > rtswb.parser.${TIME_STAMP}.tar.gz.md5
+
+#   compress rtstb parser tar
+        cd ${RTSTB_PARSER_CLEAN}
+        sed -i "s#^\(job_name: \)\(.*\)#\1\"online-dag-${TIME_STAMP}\"#g" "${PARSER_SEA_CONFIG_FILE}"
+        nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/rtstb.parser.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/rtstb.parser.${TIME_STAMP}.tar.log"
+        wait
+        [ ! -f "${SOFA_CLOUD_TAR_PATH}/rtstb.parser.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf rtstb.parser.${TIME_STAMP}.tar.gz failed!"
+        cd ${SOFA_CLOUD_TAR_PATH} && md5sum rtstb.parser.${TIME_STAMP}.tar.gz > rtstb.parser.${TIME_STAMP}.tar.gz.md5
+
+#   compress cserts parser tar
+        #cd ${CSERTS_PARSER_CLEAN}
+        #sed -i "s#^\(job_name: \)\(.*\)#\1\"online-dag-${TIME_STAMP}\"#g" "${PARSER_SEA_CONFIG_FILE}"
+        #nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/cserts.parser.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/cserts.parser.${TIME_STAMP}.tar.log"
+        #wait
+        #[ ! -f "${SOFA_CLOUD_TAR_PATH}/cserts.parser.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf cserts.parser.${TIME_STAMP}.tar.gz failed!"
+        #cd ${SOFA_CLOUD_TAR_PATH} && md5sum cserts.parser.${TIME_STAMP}.tar.gz > cserts.parser.${TIME_STAMP}.tar.gz.md5
+
+#   compress wiserts parser tar
+        cd ${WISERTS_PARSER_CLEAN}
+        sed -i "s#^\(job_name: \)\(.*\)#\1\"online-dag-${TIME_STAMP}\"#g" "${PARSER_SEA_CONFIG_FILE}"
+        nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/wiserts.parser.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/wiserts.parser.${TIME_STAMP}.tar.log"
+        wait
+        [ ! -f "${SOFA_CLOUD_TAR_PATH}/wiserts.parser.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf wiserts.parser.${TIME_STAMP}.tar.gz failed!"
+        cd ${SOFA_CLOUD_TAR_PATH} && md5sum wiserts.parser.${TIME_STAMP}.tar.gz > wiserts.parser.${TIME_STAMP}.tar.gz.md5
+    else
+        echo "Parser clean dir is no exist!"
+    fi
+
+#   compress extractor tar
+    if [ -d "${EXTRACTOR_CLEAN_PATH}" ]; then
+        cd ${EXTRACTOR_CLEAN_PATH}
+        nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/extractor.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/extractor.${TIME_STAMP}.tar.log"
+        wait
+        [ ! -f "${SOFA_CLOUD_TAR_PATH}/extractor.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf extractor.${TIME_STAMP}.tar.gz failed!"
+        cd ${SOFA_CLOUD_TAR_PATH} && md5sum extractor.${TIME_STAMP}.tar.gz > extractor.${TIME_STAMP}.tar.gz.md5
+    else
+        echo "Extractor clean dir is no exist!"
+    fi
+
+#   compress antispam tar
+    if [ -d "${ANTISPAM_CLEAN_PATH}" ]; then
+        cd ${ANTISPAM_CLEAN_PATH}
+        nohup tar -zcvf "${SOFA_CLOUD_TAR_PATH}/antispam.${TIME_STAMP}.tar.gz" * </dev/null &>"${LOG_DIR}/antispam.${TIME_STAMP}.tar.log"
+        wait
+        [ ! -f "${SOFA_CLOUD_TAR_PATH}/antispam.${TIME_STAMP}.tar.gz" ] && echo "tar -zcvf antispam.${TIME_STAMP}.tar.gz failed!"
+        cd ${SOFA_CLOUD_TAR_PATH} && md5sum antispam.${TIME_STAMP}.tar.gz > antispam.${TIME_STAMP}.tar.gz.md5
+    else
+        echo "Extractor clean dir is no exist!"
+    fi
+
+    return 0
+}
+
+
+function main() {
+    local TIME_ARG=""
+
+    while getopts "cd:h" OPTION; do
+        case $OPTION in
+            c)  compress
+                exit 0 ;;
+            d)  TIME_ARG="${OPTARG}"
+                deploy "${TIME_ARG}"
+                exit 0 ;;
+            h)  opt_help ;;
+            \?) usage ;;
+        esac
+    done
+
+    find ${LOG_DIR}/ -type f -mtime +60 -exec rm -f {} \;
+    find ${FLAG_DIR}/ -type f -mtime +60 -exec rm -f {} \;
+    compress
+    deploy "${TIME_STAMP}"
+    sleep 90m
+    start_app "${TIME_STAMP}"
+    sleep 2h
+
+    return 0
+}
+
+
+main "$@"

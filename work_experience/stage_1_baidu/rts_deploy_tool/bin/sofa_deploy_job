@@ -1,0 +1,107 @@
+#!/bin/bash
+set -o pipefail
+TOP_DIR=$(dirname $0)
+
+if [ "${SOURCE_LOCK}" != "1" ]; then
+    source "${TOP_DIR}/common.sh"
+fi
+
+KUTYPE=""
+APP_TYPE=""
+TIME_REGION=""
+
+
+function usage() {
+    echo "Usage: sofa_deploy_job -r [-d 05312135] [-t cs | es] [-k rts|rtswb|rtstb|cserts|wiserts]"
+    echo "Try 'sofa_deploy_job -h' for more information."
+    exit 1
+}
+
+function opt_help(){
+    echo "Usage: sofa_deploy_job -r [-d 05312135] [-t cs | es] [-k rts|rtswb|rtstb|cserts|wiserts]"
+    echo "SYNOPSIS:"
+    echo "    sofa_deploy_job"
+    echo "    sofa_deploy_job [option]..."
+    echo "Options:"
+    echo "    -h |   Display help information."
+    echo "    -r |   Register app."
+    echo "    -d |   Deploy job ."
+    echo "    -t |   Confirm app type."
+    echo "    -k |   Confirm kutype."
+}
+
+function register_app(){
+    case "${APP_TYPE}" in
+        cs) return_info=$(API_APP_register_cs_app "${KUTYPE}-parser-online-${TIME_STAMP}" | grep 'error' | awk -F'"error":' '{print $NF}' | cut -d',' -f 1);;
+        es) return_info=$(API_APP_register_es_app "dag-online-${TIME_STAMP}" | grep 'error' | awk -F'"error":' '{print $NF}' | cut -d',' -f 1) ;;
+        es1) ;;
+        es2) ;;
+        \?) opt_help ;;
+    esac
+
+    return $return_info
+}
+
+function deploy_job(){
+    case "${APP_TYPE}" in
+        cs) return_info=$(API_JOB_deploy_job "cs" "${KUTYPE}-parser-online-${TIME_STAMP}" "${SOFA_CLOUD_TAR_PATH}/${KUTYPE}.parser.${TIME_STAMP}.tar.gz" | grep 'error' | awk -F'"error":' '{print $NF}' | cut -d',' -f 1);;
+        es) ;;
+        es1) return_info=$(API_JOB_deploy_job "es1" "rts-dag-app-lili-PE1-${TIME_STAMP}" "${SOFA_CLOUD_TAR_PATH}/antispam.${TIME_STAMP}.tar.gz" | grep 'error' | awk -F'"error":' '{print $NF}' | cut -d',' -f 1);;
+        es2) return_info=$(API_JOB_deploy_job "es2" "rts-dag-app-lili-PE2-${TIME_STAMP}" "${SOFA_CLOUD_TAR_PATH}/extractor.${TIME_STAMP}.tar.gz" | grep 'error' | awk -F'"error":' '{print $NF}' | cut -d',' -f 1);;
+        \?) opt_help ;;
+    esac
+
+    
+    return $return_info
+}
+
+
+function main() {
+    local REGISTER_APP=""
+    local DEPLOY_JOB=""
+
+    while getopts "t:k:d:rh" OPTION; do
+        case $OPTION in
+            r)  REGISTER_APP=1 ;;
+            d)  DEPLOY_JOB=1
+                TIME_STAMP="${OPTARG}" ;;
+            t)  APP_TYPE="${OPTARG}" ;;
+            k)  KUTYPE="${OPTARG}" ;;
+            h)  opt_help ;;
+            \?) usage ;;
+        esac
+    done
+
+    if [ -z "${APP_TYPE}" ]; then
+        echo "Usage: sofa_tool [-t cs|es]"
+        echo "Please confirm app type."
+        exit 1
+    fi
+
+    if [ -z "${KUTYPE}" ] && [ "${APP_TYPE}" == "cs" ]; then
+        echo "Usage: sofa_tool [-k rts|rtswb|rtstb|cserts|wiserts]"
+        echo "Please confirm kutype."
+        exit 1
+    fi
+
+    if [ "${REGISTER_APP}" == "1" ]; then
+        register_app
+        ret = "$?"
+        if [ "$ret" -ne "0" ]; then
+            exit $ret
+        fi
+    fi
+
+    if [ "${DEPLOY_JOB}" == "1" ]; then
+        deploy_job "${TIME_REGION}"
+        ret = "$?"
+        if [ "$ret" -ne "0" ]; then
+            exit $ret
+        fi
+    fi
+
+    exit 0
+}
+
+
+main "$@"

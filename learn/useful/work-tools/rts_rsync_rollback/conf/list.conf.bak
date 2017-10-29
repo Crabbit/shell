@@ -1,0 +1,38 @@
+#!/bin/bash
+#for rsync directory config
+#
+#
+#
+#
+DIR=`dirname $0`
+
+
+
+# register_name="
+# rsync source dir
+# exclude dir1
+# exclude dir2
+# exclude dir3
+# ...
+# "
+
+# rsync register
+RSYNC_REGISTER=(
+extractor
+se
+sofa
+)
+
+extractor_src_dir=(/home/work/extractor)
+extractor_exclude_dir=(null)
+
+se_src_dir=(/home/work/se)
+se_exclude_dir=(work/newdata/newdbi/info/antispam_pageinfo
+work/newdata/newdbi/log/)
+
+sofa_src_dir=(/home/work/sofa)
+sofa_exclude_dir=(null)
+
+
+# for roll back
+ROLLBACK_DIR="$DIR/../rts_env_for_rollback/"

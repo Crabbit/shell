@@ -1,0 +1,14 @@
+#!/bin/bash
+set -o pipefail
+TOP_DIR=$(dirname $0)
+
+if [ "${SOURCE_LOCK}" != "1" ]; then
+    source "${TOP_DIR}/common.sh"
+fi
+
+function main() {
+    API_ALIAS_show_alias
+}
+
+
+main "$@"

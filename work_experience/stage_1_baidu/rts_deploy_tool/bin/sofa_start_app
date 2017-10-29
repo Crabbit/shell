@@ -1,0 +1,76 @@
+#!/bin/bash
+set -o pipefail
+TOP_DIR=$(dirname $0)
+
+if [ "${SOURCE_LOCK}" != "1" ]; then
+    source "${TOP_DIR}/common.sh"
+fi
+
+KUTYPE=""
+APP_TYPE=""
+TIME_REGION=""
+
+
+function usage() {
+    echo "Usage: sofa_start_job [-d 05312135] [-t cs | es] [-k rts|rtswb|rtstb|cserts|wiserts]"
+    echo "Try 'sofa_start_job -h' for more information."
+    exit 1
+}
+
+function opt_help(){
+    echo "Usage: sofa_start_job [-d 05312135] [-t cs | es] [-k rts|rtswb|rtstb|cserts|wiserts]"
+    echo "SYNOPSIS:"
+    echo "    sofa_start_job"
+    echo "    sofa_start_job [option]..."
+    echo "Options:"
+    echo "    -h |   Display help information."
+    echo "    -d |   Confirm time stamp."
+    echo "    -t |   Confirm app type."
+    echo "    -k |   Confirm kutype."
+}
+
+function main() {
+    local REGISTER_APP=""
+    local DEPLOY_JOB=""
+    local time_region=""
+
+    while getopts "t:k:d:h" OPTION; do
+        case $OPTION in
+            d) time_region="${OPTARG}" ;;
+            t) APP_TYPE="${OPTARG}" ;;
+            k) KU_TYPE="${OPTARG}" ;;
+            h) opt_help ;;
+            \?) usage ;;
+        esac
+    done
+
+    if [ "$#" -eq "1" ]; then
+        KU_TYPE="$(echo $1 | awk -F'-' '{print $1}')"
+        if [ "${KU_TYPE}" == "dag" ]; then
+            APP_TYPE="es"
+        elif [ "${KU_TYPE}" == "rts" ] || [ "${KU_TYPE}" == "wiserts" ] || [ "${KU_TYPE}" == "cserts" ] || [ "${KU_TYPE}" == "rtstb" ] || [ "${KU_TYPE}" == "rtswb" ]; then
+            APP_TYPE="cs"
+        else
+            echo "app type is illegal."
+        fi
+        time_region="$(echo $1 | awk -F'-' '{print $4}')"
+    fi
+
+    if [ -z "${APP_TYPE}" ]; then
+        echo "Usage: sofa_start_job [-t cs|es]"
+        echo "Please confirm app type."
+        exit 1
+    fi
+
+    if [ -z "${KU_TYPE}" ] && [ "${APP_TYPE}" == "cs" ]; then
+        echo "Usage: sofa_start_job [-k rts|rtswb|rtstb|cserts|wiserts]"
+        echo "Please confirm kutype."
+        exit 1
+    fi
+
+    return_info=$( API_APP_start_app ${APP_TYPE} ${KU_TYPE} ${time_region} | grep 'error' | awk -F'"error":' '{print $NF}' | cut -d',' -f 1 )
+    return $return_info
+}
+
+
+main "$@"

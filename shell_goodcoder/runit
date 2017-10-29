@@ -1,0 +1,381 @@
+#!/bin/bash
+# set -x
+
+# author: lili36
+# time: 2016-02-18
+# company: Baidu Inc.
+
+set -e
+set -u
+set -o pipefail
+TOP_DIR="$(dirname "$0")"
+
+    
+#color constant
+readonly COLOR_RED='\E[31;40m'
+readonly COLOR_GREEN='\E[1;32;40m'
+readonly COLOR_YELLOW='\E[1;33;40m'
+readonly COLOR_BLUE='\E[1;34;40m'
+readonly COLOR_MAGENTA='\E[35;40m'
+readonly COLOR_CYAN='\E[1;36;40m'
+
+PROC_FILE="${TOP_DIR}/Procfile"
+ENV_FILE="${TOP_DIR}/.env"
+
+RUN_SWITCH=1
+
+#   record all process pid with pid amount
+declare -a GLOBAL_PID_INFO=()
+
+#   save pid temp file
+readonly tempfile_pid="tempfile_pid"
+
+#   record process amounts
+PROCESS_AMOUNT=1
+
+trap "recv_signal" SIGINT SIGTERM
+
+# Brief:
+#   provides the usage information about runit 
+# Globals:
+#   none
+# Arguments:
+#   none
+# Return:
+#     1 : exit process.
+function usage() {
+    echo "Usage: runit [-c] [-f procfile|Procfile] [-e envfile|.env]"
+    echo "Try 'runit -h' for more information."
+    exit 1
+}
+# Brief:
+#   provides the help information about runit 
+# Globals:
+#   none
+# Arguments:
+#   none
+# Return:
+#     0 : normal
+function opt_help() {
+    echo "Usage: runit [-c] [-f procfile|Procfile] [-e envfile|.env]"
+    echo "SYNOPSIS:"
+    echo "    runit "
+    echo "    runit [option]..."
+    echo "Options:"
+    echo "    -h |   Display help information."
+    echo "    -c |   Check env_file and procfile format."
+    echo "    -e |   Load the env_file you specified."
+    echo "    -f |   Load the procfile you specified."
+    return 0
+}
+
+# Brief:
+#   Capture signals
+#   and kill all sub processes.
+# Globals:
+#   1. ${GLOBAL_PID_INFO[*]}  
+#      record all pid 
+# Arguments:
+#   none
+# Return:
+#     0 : normal
+function recv_signal() {
+    amounts="${#GLOBAL_PID_INFO[*]}"
+    count=0
+    while [[ "${count}" -lt "${amounts}" ]]; do
+        kill -TERM "${GLOBAL_PID_INFO[${count}]}"
+        if [[ "$?" -ne 0 ]]; then
+            echo "kill process pid=${GLOBAL_PID_INFO[${count}]} error"
+        fi
+        count="$[ $count + 1 ]"
+    done
+    return 0
+}
+
+# Brief:
+#   Verify the procfile 
+# Globals:
+#   1. $PROC_FILE  
+#      The path and name of procfile.
+# Arguments:
+#   none
+# Return:
+#     0 : normal
+#     1 : error
+function verify_proc_file() {
+    local ret=''
+    local return_value=0
+    local line=''
+    local proc_file=''
+    local cmd_name=''
+    local cmd=''
+    [[ "$#" -eq 1 ]] && [[ ! -z "${1}" ]] && proc_file="${1}"
+    exec 3< "${proc_file}"
+    while read line <&3 || [[ "${line}" ]]; do
+        set +e
+        line="$(echo "${line}" | grep -v '^#')"
+        [[ -z "${line}" ]] && continue
+
+        if [[ "${line}" =~ ':' ]]; then
+                cmd_name="$( echo "${line%%:*}" | grep -Ev "[^a-zA-Z0-9_]" )"
+                cmd="$( echo "${line#*:}" )"
+                if [ -z "${cmd_name}" -o -z  "${cmd}" ]; then
+                    echo "${line} config error." && return_value=1 && continue
+                fi
+            else
+                echo "no_colon_command" && return_value=1 && continue
+        fi
+        set -e
+    done
+    exec 3<&-
+    return "${return_value}"
+}
+
+# Brief:
+#   Verify the envfile
+# Globals:
+#   1. $ENV_FILE
+#      The path and name of env file.
+# Arguments:
+#   none
+# Return:
+#     0 : normal
+#     1 : error
+function verify_env_file() {
+    return_value=0
+    [[ "$#" -eq 1 ]] && [[ ! -z "${1}" ]] && env_file="${1}"
+    exec 4< "${env_file}"
+    local line=''
+    while read line <&4 || [[ "${line}" ]]; do
+        set +e
+        line="$(echo "${line}" | grep -v '^#')"
+        [[ -z "${line}" ]] && continue
+
+        if [[ "${line}" =~ '=' ]]; then
+                key="$( echo "${line%=*}" | grep -Ev "[^a-zA-Z0-9_]" )"
+                value="$( echo "${line#*=}" | grep -v ' ')"
+                if [ -z "${key}" -o -z  "${value}" ]; then
+                    echo "${line} config error." && return_value=1 && continue
+                fi
+            else
+                echo "no_equal_mark" && return_value=1 && continue
+        fi
+        set -e
+    done
+    exec 4<&-
+    return "${return_value}"
+}
+
+# Brief:
+#   Verify the procfile and env file.
+# Globals:
+#   1. $PROC_FILE  
+#      The path and name of procfile.
+#   2. $ENV_FILE
+#      The path and name of env file.
+# Arguments:
+#   none
+# Return:
+#   format_status
+#     0 : normal
+#     1 : error
+function verify() {
+    format_status=0
+
+    [[ ! -f "${PROC_FILE}" ]] && echo "${PROC_FILE} file not exist. Please check." && return 255
+    verify_proc_file "${PROC_FILE}"
+    format_status="$?"
+
+    [[ ! -f "${ENV_FILE}" ]] && return "${format_status}"
+    verify_env_file "${ENV_FILE}"
+    format_status="$[ $? + ${format_status} ]"
+    
+    return "${format_status}"
+}
+
+# Brief:
+#   print process information with different color.
+# Globals:
+#   none
+# Arguments:
+#   $1 : command name
+#   $2 : process pid number
+#   $1 : print extra information 
+# Return:
+#   0 : normal
+function log() {
+    [[ "$#" -ne 3 ]] && echo "The log function need 3 arguments" && return 255 
+    local cmd_name="${1}"
+    local pid_info="${2}"
+    local pid_amount="$( echo "${pid_info#*_}" )"
+    local info="${3}"
+    [[ "${info}" == "null" ]] && info=""
+    local date="$( date +"%H:%m:%S" )"
+    local color_switch="$[ ${pid_amount} % 6 ]"
+    local color_code="${COLOR_RED}"
+    case "${color_switch}" in 
+        0) color_code="${COLOR_RED}" ;;
+        1) color_code="${COLOR_GREEN}" ;;
+        2) color_code="${COLOR_YELLOW}" ;;
+        3) color_code="${COLOR_BLUE}" ;;
+        4) color_code="${COLOR_MAGENTA}" ;;
+        5) color_code="${COLOR_CYAN}" ;;
+        \?) color_code="${COLOR_RED}" ;;
+    esac
+    # echo -e "${color_code} ${date} ${cmd_name} \t\t|\E[0m ${info}"
+    # printf "${color_code} ${date} ${cmd_name} %-12s |\E[0m"  "${info}"
+    printf "${color_code} ${date}  #%-12s# |\E[0m " "${cmd_name}"
+    echo "${info}"
+    return 0
+}
+
+# Brief:
+#   execute command
+# Globals:
+#   1. ${GLOBAL_PID_INFO[*]}  
+#      record all pid 
+#   2. ${tempfile_pid}
+#      temp file, save pid.
+# Arguments:
+#   $1 : command name
+#   $2 : execute command
+# Return:
+#   0 : normal
+function run_command() {
+    [[ "$#" -ne 2 ]] && echo "The run_command function need 2 arguments" && return 255
+    local cmd_name="${1}"
+    local cmd="${2}"
+    local global_pid_info="0"
+    local line=''
+    local end_cmd=''
+    local pid_info=''
+    local cmd_info=''
+    cmd_info="$( bash -c "echo \"${cmd}\"" )"
+    end_cmd="$( echo "${cmd} &" )"
+    (
+        set +e
+        while read line; do
+            global_pid_info="$(cat "${tempfile_pid}" | grep "^${cmd_name}-")"
+            global_pid_info="$( echo "${global_pid_info#*-}" )"
+            log "${cmd_name}" "${global_pid_info}" "${line}" 
+        done < <( eval ${end_cmd} 2>&1; echo "${cmd_name}-$!_${PROCESS_AMOUNT}" >> "${tempfile_pid}" )
+        set -e
+    ) &
+    PROCESS_AMOUNT="$[ ${PROCESS_AMOUNT} + 1 ]"
+    pid_info="$(cat "${tempfile_pid}" | grep "^${cmd_name}-")"
+    pid_info="$( echo "${pid_info#*-}" )"
+    pid="$( echo "${pid_info%_*}" )"
+    log "${cmd_name}" "${pid_info}" "${cmd_info} started with pid ${pid}" 
+    if [[ -z "${GLOBAL_PID_INFO:-}" ]]; then
+        GLOBAL_PID_INFO=("${pid}")
+    else
+        GLOBAL_PID_INFO=("${GLOBAL_PID_INFO[@]}" "${pid}")
+    fi
+    
+    return 0
+}
+
+# Brief:
+#   source env file
+# Globals:
+#   1. $ENV_FILE
+#      The path and name of env file.
+#   2. $PORT
+#      The port value used in program
+# Arguments:
+#   none
+# Return:
+#   0 : normal
+function load_env_file() {
+    #[[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}" || PORT=8080 && return 0
+    set -a
+    PORT="8080"
+    [[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}" 
+    set +a
+    return 0
+}
+
+# Brief:
+#   execute command according to file
+# Globals:
+#   1. $PROC_FILE
+#      The path and name of procfile.
+# Arguments:
+#   none
+# Return:
+#   0 : normal
+function run_procfile() {
+    exec 3< "${PROC_FILE}"
+
+    local line=''
+    set +e
+    while read line <&3 || [[ "${line}" ]]; do
+        line="$(echo "${line}" | grep -v '^#')"
+        if [[ -z "${line}" ]]; then
+            continue
+        fi
+        cmd_name="$( echo "${line%%:*}" )"
+        cmd="$( echo "${line#*:}" )"
+
+        $( echo "${cmd}" | grep -q "\$PORT" )
+        ret="$?"
+        if [ "$ret" -eq 0 ]; then
+            cmd="$( echo "${cmd/\$PORT/$PORT}" )"
+            PORT="$[ $PORT + 1 ]"
+        fi
+        run_command "${cmd_name}" "${cmd}"
+    done
+    set -e
+
+    exec 3<&-
+    wait
+    return 0
+}
+
+# Brief:
+#   main function, program entry
+# Globals:
+#   1. $PROC_FILE
+#      The path and name of procfile.
+#   2. $ENV_FILE
+#      The path and name of env file.
+#   3. $RUN_SWITCH
+#      check file format switch
+# Arguments:
+#   $1 : command name
+#   $2 : execute command
+# Return:
+#   0 : normal
+function main() {
+    > "${tempfile_pid}"
+    while getopts "f:e:ch" OPTION; do
+        case "${OPTION}" in
+            f)  PROC_FILE="${OPTARG}" ;;
+            e)  ENV_FILE="${OPTARG}" ;;
+            c)  RUN_SWITCH="0" ;;
+            h)  opt_help ;;
+            \?) usage ;;
+        esac
+    done
+
+    verify
+    ret="$?"
+    [[ "${RUN_SWITCH}" -eq '0' ]] && exit ${ret}
+
+    if [ "${ret}" -eq 0 ];then 
+        load_env_file
+        ret="$?"
+    else
+        exit "${ret}"
+    fi
+
+    if [ "${ret}" -eq 0 ];then 
+        run_procfile
+        ret="$?"
+    else
+        exit "${ret}"
+    fi
+    return "${ret}"
+}
+
+main "$@"

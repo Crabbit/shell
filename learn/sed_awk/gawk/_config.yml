@@ -1,0 +1,4 @@
+[master 465f6b2] Winter study,Begin
+ 2 files changed, 17 insertions(+), 0 deletions(-)
+ create mode 100644 src/sed_awk/gawk/gawk_higher/data
+ create mode 100644 src/sed_awk/gawk/gawk_higher/set_ifs.sh

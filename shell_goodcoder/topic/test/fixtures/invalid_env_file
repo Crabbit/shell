@@ -1,0 +1,4 @@
+invalid_char()=xxx
+no_value_is_ok=
+value_have_space=one space
+no_equal_mark
